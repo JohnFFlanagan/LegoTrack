@@ -12,22 +12,15 @@ CenterHoleRadius = 1.6; // [0:-01:3] One LU
 /* [Straight] */
 StraightLength =8;  // [2:1:16]
 /* [Curve] */
-// Use length of track or total angle
-LengthAngle = "length";  // [length:"Length",angle:"Angle"]
 // Angle in degrees
-CurveAngle = 45; // [1:1:180]
-// Length in MM not Block Width
-CurveLength = 64;   // [1:1:250]
-// Diameter in MM 
-CurveDiameter = 120;
+CurveAngle = 45; // [0:0.001:180]
+// Radius in 1x1 units (4mm)
+CurveRadius = 20;
 /* [Crossing] */
 CrossingLength = 15;
 SideBlockWidth = 2;     // [1,2]
 SideBlockLength = 3;    // [1,2,3,4]
 //
-
-// feel free to use directly the angle
-angle = (LengthAngle == "length" ? asin(CurveLength / CurveDiameter) : CurveAngle);
 
 /* [Printer-Specific] */
 // Change Stud on top size based on printer
@@ -79,10 +72,15 @@ module rail_straight(length) {
     rotate([90,-90,180]) linear_extrude(length) polygon(railProfile);
 }
 
-module rail_curved(angle, diameter) {
-    translate([-diameter+8,0,0])
-    rotate_extrude(angle = angle, $fn = 300)
-    translate([diameter,0,0])
+module rail_curved(angle, radius) {
+    function angle_4mm(angle,radius) = 
+        (360*4)/(3.14159*radius*2);
+    sa = angle_4mm(angle,radius);  // small angle
+    
+    translate([-radius,0,0])
+    rotate([0,0,sa])
+    rotate_extrude(angle = angle-sa*2, $fn = 300)
+    translate([radius+8,0,0])
     rotate([0,0,90]) 
     polygon(railProfile);
 }
@@ -392,23 +390,36 @@ module mainStraight(length=120, ties=1) {
         translate([0,(length+8)*(index/(ties+1))-4,0]) tie();
         }
   }
+ 
   
- module mainCurved(ties=1) {
+ //
+ // Center Radius in blocks
+ module mainCurved(angle=CurveAngle,CenterRadius=20,ties=1) {
+    real_center_radius = CenterRadius*BlockWidth;
+    inner_tie_radius = real_center_radius - 
+        (NormalNarrow == "normal" ? 3*BlockWidth : 2*BlockWidth);
+    outer_tie_radius = inner_tie_radius + Guage;
 
-    rail_curved(angle, CurveDiameter);
-    translate([Guage,0,0]) rail_curved(angle, CurveDiameter+Guage);
+    // Move so tie is at 0,0,0
+    translate([8,0,0]) {
+        rail_curved(angle, inner_tie_radius);
+        translate([Guage,0,0]) rail_curved(angle, outer_tie_radius);
+    }
+    translate([8,4,0])
+        full_endpoint();
     
-    full_endpoint();
+    // endpoint after rotate 180.180 on minus side with 8 on plus
+    // so guage plus 16 moves to positive side with rail 8 out.  
+    translate([-(inner_tie_radius-8),0,0]) 
+        rotate([0,0,angle]) 
+            translate([Guage+16+inner_tie_radius-8,-4,0]) 
+                rotate([180,180,0])
+                    full_endpoint();
 
-    translate([-CurveDiameter,0,0]) 
-    rotate([0,0,angle]) 
-    translate([CurveDiameter+Guage+cos(angle)*8,sin(angle)*-8,0]) rotate([180,180,0]) full_endpoint();
-    
-    
      for (index = [1:1:ties]) {
-        translate([-CurveDiameter+8,0,0]) 
+        translate([-inner_tie_radius+8,0,0]) 
         rotate([0,0,angle*(index/(ties+1))])
-        translate([CurveDiameter-8,0,0]) tie();
+        translate([inner_tie_radius,0,0]) tie();
     }
 }
 
@@ -500,8 +511,15 @@ module sloped_side(l=100) {
 AdditionalLength = (StraightLength-1) * BlockWidth;
 if (Type == "straight")
     mainStraight (AdditionalLength,ties=ties);
-else if (Type == "curve")
-    rotate([0,0,90]) mainCurved(ties=ties);
+else if (Type == "curve") {
+    %color("Lime")for(i=[0: 22.5: 90])rotate([0,0,i])
+        translate([0,25,0])
+            cube([1,400,1]);
+
+    // Translate so angles show more easily
+    translate([0,(CurveRadius*8-(NormalNarrow=="normal" ? 32: 24)),0])
+    rotate([0,0,90]) mainCurved(angle=CurveAngle, CenterRadius=CurveRadius, ties=ties);
+    }
 else if (Type == "crossing")
     crossing(CrossingLength*8);
 else if (Type =="test")
