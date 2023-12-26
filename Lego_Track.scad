@@ -17,6 +17,7 @@ CurveAngle = 45; // [0:0.001:180]
 // Radius in 1x1 units (4mm)
 CurveRadius = 20;
 /* [Crossing] */
+CrossingType = "full"; // [full:"Full",side:"Side",center:"Center",rerail:"Rerail"]
 CrossingLength = 15;
 SideBlockWidth = 2;     // [1,2]
 SideBlockLength = 3;    // [1,2,3,4]
@@ -441,10 +442,10 @@ module crossing(l=120) {
     translate([-BlockWidth/2,0,0])rotate([0,0,90]) main_crossing(l-BlockWidth);
  
     // Left slope
-    translate([-off/2,0,0]) sloped_side(l-off);
+    translate([-off/2,0,0]) sloped_side(JustSlope=false, l=l-off);
 
     // Right slope
-    translate([-l+off/2,Guage+BlockWidth*1,0])rotate([0,0,180]) sloped_side(l-off);
+    translate([-l+off/2,Guage+BlockWidth*1,0])rotate([0,0,180]) sloped_side(JustSlope=false,l=l-off);
 
     // Center section
     difference() {
@@ -460,48 +461,67 @@ module crossing(l=120) {
 }
  
 // sloped side
-module sloped_side(l=100) {
+module sloped_side(JustSlope=false, l=100) {
 
     difference() {
    
         hull() {
             translate([-l,-2,0])  cube([l,2,8]);
-            translate([-l,-40,0]) cube([l,2,2]);
+            translate([-l,-40,0]) cube([l,2,2.2]);
         }
+        if (JustSlope) translate([-(l+FPOffset), -BlockWidth+FPOffset, -FPOffset]) 
+            cube([l+2*FPOffset,BlockWidth, TieHeight+FPOffset]);
 
-        if (bottom_open) translate([-l+Wall,-40+Wall,-FPOffset]) cube([l-2*Wall, 40-2*Wall, TieHeight-RoofThickness+FPOffset]);
+        if (bottom_open) {
+           if (!JustSlope) {
+               translate([-l+Wall,-40+Wall,-FPOffset]) cube([l-2*Wall, 40-2*Wall, TieHeight-RoofThickness+FPOffset]);
+           } else {
+               translate([-l+Wall,-40+Wall,-FPOffset]) cube([l-2*Wall, 32-2*Wall, TieHeight-RoofThickness+FPOffset]);
+               translate([-l+Wall,-8+Wall,TieHeight-FPOffset])
+                    #cube([l-2*Wall, 8-2*Wall, TieHeight-RoofThickness+FPOffset]);
+           }
+       }
     }
 
-    if (bottom_open) translate([-l, Guage-BlockWidth+BlockWidth*2,0]) fill_bottom(5,l/BlockWidth, TieHeight-RoofThickness);
+    if (bottom_open) {
+        if (!JustSlope) {
+            translate([-l, -(Guage),0]) fill_bottom(5,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
+        } else {
+            translate([-l, -(Guage),0]) fill_bottom(4,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
+            translate([-l,-8,TieHeight])fill_bottom(1,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
+        }
+    }
+    
     x=10;
-    // side 3x2 block
-    translate([-0,-40,0]) {
-        // Studs
-        for (i=[0:8:(SideBlockWidth-1)*BlockWidth])
-            for (j=[0:8:(SideBlockLength-1)*BlockWidth])
-                translate ([4+i,4+j,3]) cylinder(d=StudDiameter,h=StudHeight, $fn = 50);
-                
-        difference () {
-            cube([BlockWidth*SideBlockWidth, BlockWidth*SideBlockLength,TieHeight], false);
-            if (bottom_open) translate([Wall, Wall, -FPOffset]) 
-                cube([BlockWidth*SideBlockWidth-2*Wall, BlockWidth*SideBlockLength-2*Wall, TieHeight-RoofThickness+FPOffset]);
+    if (!JustSlope) {
+        // side 3x2 block
+        translate([-0,-40,0]) {
+            // Studs
+            for (i=[0:8:(SideBlockWidth-1)*BlockWidth])
+                for (j=[0:8:(SideBlockLength-1)*BlockWidth])
+                    translate ([4+i,4+j,3]) cylinder(d=StudDiameter,h=StudHeight, $fn = 50);
+                    
+            difference () {
+                cube([BlockWidth*SideBlockWidth, BlockWidth*SideBlockLength,TieHeight], false);
+                if (bottom_open) translate([Wall, Wall, -FPOffset]) 
+                    cube([BlockWidth*SideBlockWidth-2*Wall, BlockWidth*SideBlockLength-2*Wall, TieHeight-RoofThickness+FPOffset]);
+            }
+            if (bottom_open) fill_bottom(SideBlockLength,SideBlockWidth,TieHeight-RoofThickness);
         }
-        if (bottom_open) fill_bottom(SideBlockLength,SideBlockWidth,TieHeight-RoofThickness);
-    }
-    // side 3x2 block
-    translate([-l-(BlockWidth*SideBlockWidth),-40,0]) {
-        // Studs
-        for (i=[0:8:(SideBlockWidth-1)*BlockWidth])
-            for (j=[0:BlockWidth:(SideBlockLength-1)*BlockWidth])
-                translate ([4+i,4+j,3]) cylinder(d=StudDiameter,h=StudHeight, $fn = 50);
-
-          difference () {
-            cube([BlockWidth*SideBlockWidth, BlockWidth*SideBlockLength,TieHeight], false);
-            if (bottom_open) translate([Wall, Wall, -FPOffset]) cube([BlockWidth*SideBlockWidth-2*Wall, BlockWidth*SideBlockLength-2*Wall, TieHeight-RoofThickness+FPOffset]);
+        // side 3x2 block
+        translate([-l-(BlockWidth*SideBlockWidth),-40,0]) {
+            // Studs
+            for (i=[0:8:(SideBlockWidth-1)*BlockWidth])
+                for (j=[0:BlockWidth:(SideBlockLength-1)*BlockWidth])
+                    translate ([4+i,4+j,3]) cylinder(d=StudDiameter,h=StudHeight, $fn = 50);
+    
+              difference () {
+                cube([BlockWidth*SideBlockWidth, BlockWidth*SideBlockLength,TieHeight], false);
+                if (bottom_open) translate([Wall, Wall, -FPOffset]) cube([BlockWidth*SideBlockWidth-2*Wall, BlockWidth*SideBlockLength-2*Wall, TieHeight-RoofThickness+FPOffset]);
+            }
+            if (bottom_open) fill_bottom(SideBlockLength,SideBlockWidth,TieHeight-RoofThickness);
         }
-        if (bottom_open) fill_bottom(SideBlockLength,SideBlockWidth,TieHeight-RoofThickness);
     }
-
 }
  
 /*
@@ -520,16 +540,36 @@ else if (Type == "curve") {
     translate([0,(CurveRadius*8-(NormalNarrow=="normal" ? 32: 24)),0])
     rotate([0,0,90]) mainCurved(angle=CurveAngle, CenterRadius=CurveRadius, ties=ties);
     }
-else if (Type == "crossing")
-    crossing(CrossingLength*8);
-else if (Type =="test")
-{
+else if (Type == "crossing"){
+    if (CrossingType == "full")
+        crossing(CrossingLength*8);
+    else if (CrossingType == "side")
+        sloped_side(JustSlope=true, l=CrossingLength*BlockWidth);
+    else { // Must be Center or rerail
+        l=CrossingLength*BlockWidth; 
+        difference() {
+            translate([-l,0,0]) {
+                difference () {
+                    cube([l,Guage-8,8]);
+                    if (bottom_open) translate([Wall,Wall,-FPOffset]) cube([l-2*Wall,(Guage-8)-2*Wall, TieHeight-RoofThickness+FPOffset]);
+                } 
+                if (bottom_open) fill_bottom((Guage-8)/BlockWidth,l/BlockWidth,TieHeight-RoofThickness);
+            }
+            if (CrossingType == "rerail") {
+        translate([0,(Guage-8)/2,-1]) rotate([0,0,-135]) cube([30,15,10],false);
+        translate([-l,(Guage-8)/2,-1]) rotate([0,0,-135]) cube([15,30,10],false);
+        translate([-(Guage-8)/2,(Guage-8),-1]) rotate([0,0,-45]) cube([30,15,10],false);
+        translate([-l,(Guage-8)/2,-1]) rotate([0,0,-45]) translate([-15,0,0])cube([15,30,10],false);
+            }
+        }
+    }
+}      
+   
+else if (Type =="test"){
     tie();
     translate([0,-8,0]) rail_straight(16);
     translate([Guage,-8,0]) rail_straight(16);
-}   
-  
-  
+}
 
 /*
 module negative_bend(angle,diameter)
