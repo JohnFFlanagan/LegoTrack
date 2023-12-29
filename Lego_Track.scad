@@ -18,9 +18,19 @@ CurveAngle = 45; // [0:0.001:180]
 CurveRadius = 20;
 /* [Crossing] */
 CrossingType = "full"; // [full:"Full",side:"Side",center:"Center",rerail:"Rerail"]
+// Length of the crossing
 CrossingLength = 15;
+// How long is the side of the crossing
+CrossingSideWidth = 5; // [5,6]
+// Side style ramp or convex curve
+CrossingRampStype = "ramp"; // [ramp:"Ramp", curve:"Curve"] 
+// How high is the end of the curved ramp 1 block or 2/3
+CrossingHeightRatio = 1.0;  // [0.66666666,1.0]
+// Width of side pad
 SideBlockWidth = 2;     // [1,2]
+// Length of side pad
 SideBlockLength = 3;    // [1,2,3,4]
+
 //
 
 /* [Printer-Specific] */
@@ -50,6 +60,7 @@ TrackGuage      = LU*5*5; // 40 MM
 NarrowTrackGuage = LU*5*3; // 24 MM
 FPOffset        = 0.1;      // value to add to difference to 
                             // account for floating point math
+CylinderPrecision = 80;     // Round smoothing
 Guage = (NormalNarrow == "normal" ? TrackGuage : NarrowTrackGuage);
 
 
@@ -129,7 +140,7 @@ module stud() {
     studHeight = 1.8;
 
     realStudDiameter = studDiameter * StudRescale;
-    cylinder(d=realStudDiameter, h=studHeight,false, $fn = 80);
+    cylinder(d=realStudDiameter, h=studHeight,false, $fn = CylinderPrecision);
 }
 
 module attach() {
@@ -148,7 +159,7 @@ module attach() {
                         difference() {
                             translate ([9.6,-2.4,-FPOffset]) cube ([32-TieHeight, 4.8, TieHeight-RoofThickness+FPOffset], false);
                             translate ([12,-3.3,-0.5]) attach_poly(4);
-                            translate ([32,-4,-0.5]) cylinder(4,3-off,3+off,false, $fn = 80);
+                            translate ([32,-4,-0.5]) cylinder(4,3-off,3+off,false, $fn = CylinderPrecision);
                         }
                     }
                     translate ([12,-4.11,-0.5]) attach_poly(4);
@@ -157,17 +168,17 @@ module attach() {
                 // Round connection point
                 difference() {
                     union() {
-                        translate ([16,-2.2,0]) cylinder(3.2,1,1,false, $fn = 80);
-                        translate ([16,-4,0]) cylinder(3.2,1.95,1.95,false, $fn = 80);
+                        translate ([16,-2.2,0]) cylinder(3.2,1,1,false, $fn = CylinderPrecision);
+                        translate ([16,-4,0]) cylinder(3.2,1.95,1.95,false, $fn = CylinderPrecision);
                     }
-                    translate ([16,-4,-0.5]) cylinder(4,.8,.8,false, $fn = 80);
+                    translate ([16,-4,-0.5]) cylinder(4,.8,.8,false, $fn = CylinderPrecision);
                 }
                 
                 // hole connection point additional material
                 translate ([28,-3.4,0]) mirror([0,1,0]) attach_poly(3.2);
             }
             // hole in the hole connection point
-            translate ([32,-4,-0.5]) cylinder(4,2-off,2+off,false, $fn = 80);
+            translate ([32,-4,-0.5]) cylinder(4,2-off,2+off,false, $fn = CylinderPrecision);
         }
         // end of tie left
         difference() {
@@ -218,16 +229,16 @@ module narrow_attach(l) {
                 // Left Round connection point
                 difference() {
                     union() {
-                        translate ([16,-4,0]) cylinder(3.2,1.95,1.95,false, $fn = 80);
-                        translate ([16,-2.2,0]) cylinder(3.2,1,1,false, $fn = 80);
+                        translate ([16,-4,0]) cylinder(3.2,1.95,1.95,false, $fn = CylinderPrecision);
+                        translate ([16,-2.2,0]) cylinder(3.2,1,1,false, $fn = CylinderPrecision);
                     }
-                    translate ([16,-4,-0.5]) cylinder(4,.8,.8,false, $fn = 80);
+                    translate ([16,-4,-0.5]) cylinder(4,.8,.8,false, $fn = CylinderPrecision);
                 }
                 // Right side connector area
                 translate ([28,-3.4,0]) mirror([0,1,0]) attach_poly(3.2);        
             }
             // Hole in right side connector
-            translate ([32,-4,-0.5]) cylinder(4,2.05,2.05,false, $fn = 80);
+            translate ([32,-4,-0.5]) cylinder(4,2.05,2.05,false, $fn = CylinderPrecision);
         }
         
         // Studs
@@ -279,8 +290,8 @@ module fill_bottom(width, length, height) {
     
     module post() {
         difference() {
-            cylinder(r=PostDiameter/2, h=height,$fn=40);
-            translate([0,0,-FPOffset]) cylinder(r=(PostDiameter/2)-post_wall_thickness, h=height+FPOffset,$fn=40);
+            cylinder(r=PostDiameter/2, h=height,$fn=CylinderPrecision);
+            translate([0,0,-FPOffset]) cylinder(r=(PostDiameter/2)-post_wall_thickness, h=height+FPOffset,$fn=CylinderPrecision);
         }
     }
     
@@ -319,14 +330,14 @@ module fill_bottom(width, length, height) {
         if (width == 1) {
             translate([(PinDiameter/2) + (overall_length - total_pins_length) / 2, overall_width/2, 0]) {
                 for (xcount=[1:length-1]) {
-                    translate([(xcount-1)*StudSpacing,0,0]) cylinder(r=PinDiameter/2,h=height,$fn=40);
+                    translate([(xcount-1)*StudSpacing,0,0]) cylinder(r=PinDiameter/2,h=height,$fn=CylinderPrecision);
                 }
             }
         }
         else {
             translate([overall_length/2, (PinDiameter/2) + (overall_width - total_pins_width) / 2, 0]) {
                 for (ycount=[1:width-1]) {
-                    translate([0,(ycount-1)*StudSpacing,0]) cylinder(r=PinDiameter/2,h=height,$fn=40);
+                    translate([0,(ycount-1)*StudSpacing,0]) cylinder(r=PinDiameter/2,h=height,$fn=CylinderPrecision);
                 }
             }
         }
@@ -368,7 +379,7 @@ module tie() {
         }
         // hole in the middle
         if (TieCenterHole == "yes")
-            translate([(Guage+8)/2,0,-.5]) cylinder(r=CenterHoleRadius, h=5, center=false, $fn=40);
+            translate([(Guage+8)/2,0,-.5]) cylinder(r=CenterHoleRadius, h=5, center=false, $fn=CylinderPrecision);
     }
     
     for(a=[-4,4])
@@ -462,44 +473,105 @@ module crossing(l=120) {
  
 // sloped side
 module sloped_side(JustSlope=false, l=100) {
+side_length = CrossingSideWidth*BlockWidth;
 
-    difference() {
-   
-        hull() {
-            translate([-l,-2,0])  cube([l,2,8]);
-            translate([-l,-40,0]) cube([l,2,2.2]);
+    wall_play = 0.1;
+    // How much vertical height should be left at the end of the curve? This is just enough for a stud to fit
+    curve_end_height = (CrossingHeightRatio == 1.0 ? .1 : 0.15);  // alway <= 1/3
+    real_XLength = l;
+    real_XWidth = CrossingSideWidth*BlockWidth;
+    overall_XWidth = (real_XWidth) - (2 * wall_play);
+    overall_XLength = (real_XLength) - (2 * wall_play);
+    real_curve_end_height = curve_end_height*BlockHeight;    
+    curve_circle_XWidth = (overall_XWidth + (wall_play/2)) * 2;
+    curve_circle_height = (((BlockHeight*CrossingHeightRatio) - (real_curve_end_height)) * 2) - 0*( (Wall * 2));
+    
+    difference() {    // Set basic shape, slope for ramp and cube for curve
+        if (CrossingRampStype == "ramp" ) { // slope
+            hull() {
+                translate([-l,-2,0])  cube([l,2,8]);
+                translate([-l,-side_length,0]) cube([l,2,2.2]);
+            }
+        }
+        else {
+            translate([-l, -side_length,0]) cube([l, side_length, BlockHeight]);
         }
         if (JustSlope) translate([-(l+FPOffset), -BlockWidth+FPOffset, -FPOffset]) 
             cube([l+2*FPOffset,BlockWidth, TieHeight+FPOffset]);
 
         if (bottom_open) {
-           if (!JustSlope) {
-               translate([-l+Wall,-40+Wall,-FPOffset]) cube([l-2*Wall, 40-2*Wall, TieHeight-RoofThickness+FPOffset]);
-           } else {
-               translate([-l+Wall,-40+Wall,-FPOffset]) cube([l-2*Wall, 32-2*Wall, TieHeight-RoofThickness+FPOffset]);
-               translate([-l+Wall,-8+Wall,TieHeight-FPOffset])
-                    #cube([l-2*Wall, 8-2*Wall, TieHeight-RoofThickness+FPOffset]);
-           }
+            if (!JustSlope) {
+                translate([-l+Wall,-side_length+Wall,-FPOffset]) cube([l-2*Wall, side_length-2*Wall, TieHeight-RoofThickness+FPOffset]);
+            } else {
+                translate([-l+Wall,-side_length+Wall,-FPOffset]) cube([l-2*Wall, side_length-2*Wall, TieHeight-RoofThickness+FPOffset]);
+                translate([-l+Wall,-8+Wall,TieHeight-FPOffset])
+                    cube([l-2*Wall, 8-2*Wall, TieHeight-RoofThickness+FPOffset]);
+            }
+        }
+                  
+        if (CrossingRampStype == "curve") {
+            rotate([0,0,90])difference() {
+                translate([-(curve_circle_XWidth/2+1), // Align the center of the cube with the end of the block.
+                           -0.5, // Center the extra real_XLength on the block.
+                           (CrossingHeightRatio * BlockHeight) - (curve_circle_height / 2)  // Align the bottom of the cube with the center of the curve circle.
+                          ]) cube([curve_circle_XWidth/2+2, overall_XLength + 1, curve_circle_height]);
+
+                translate([0,  // Align the end of the curve with the end of the block.
+                           overall_XLength/2, // Center it on the block.
+                           (CrossingHeightRatio * BlockHeight) - (curve_circle_height / 2)  // Align the top of the curve with the top of the block.
+                          ])
+                    rotate([90, 0, 0]) // Rotate sideways
+                    translate([0, 0, -overall_XLength/2]) // Move so the cylinder is z-centered.
+                    resize([curve_circle_XWidth, curve_circle_height, 0]) // Resize to the approprate scale.
+                    cylinder(r=CrossingHeightRatio * BlockHeight, h=overall_XLength, $fn=CylinderPrecision);
+            }
        }
+    }
+    if (CrossingRampStype == "curve") {    
+        rotate([0,0,90]) intersection() {
+            translate([-(curve_circle_XWidth/2+1), // Align the center of the cube with the end of the block.
+                       -0.5, // Center the extra real_XLength on the block.
+                       (CrossingHeightRatio * BlockHeight) - (curve_circle_height / 2)  // Align the bottom of the cube with the center of the curve circle.
+                      ]) cube([curve_circle_XWidth/2+1, overall_XLength + 1, curve_circle_height]);
+
+            difference() {   
+                translate([0,  // Align the end of the curve with the end of the block.
+                           overall_XLength / 2, // Center it on the block.
+                           (CrossingHeightRatio * BlockHeight) - (curve_circle_height / 2)  // Align the top of the curve with the top of the block.
+                          ])
+                    rotate([90, 0, 0]) // Rotate sideways
+                    translate([0, 0, -overall_XLength/2]) // Move so the cylinder is z-centered.
+                    resize([curve_circle_XWidth, curve_circle_height, 0]) // Resize to the approprate scale.
+                    cylinder(r=CrossingHeightRatio * BlockHeight, h=overall_XLength, $fn=CylinderPrecision);
+
+                translate([0,  // Align the end of the curve with the end of the block.
+                           overall_XLength / 2, // Center it on the block.
+                           (CrossingHeightRatio * BlockHeight) - (curve_circle_height / 2) // Align the top of the curve with the top of the block.
+                          ])
+                    rotate([90, 0, 0]) // Rotate sideways
+                    translate([0, 0, -overall_XLength/2-FPOffset]) // Move so the cylinder is z-centered.
+                    resize([curve_circle_XWidth - (RoofThickness * 2), curve_circle_height - (RoofThickness * 2), 0]) // Resize to the approprate scale.
+                    cylinder(r=CrossingHeightRatio * BlockHeight, h=overall_XLength+2*FPOffset, $fn=CylinderPrecision);
+            }
+        }
     }
 
     if (bottom_open) {
         if (!JustSlope) {
-            translate([-l, -(Guage),0]) fill_bottom(5,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
+            translate([-l, -side_length,0]) fill_bottom(side_length/BlockWidth,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
         } else {
-            translate([-l, -(Guage),0]) fill_bottom(4,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
+            translate([-l, -side_length,0]) fill_bottom((side_length-1)/BlockWidth,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
             translate([-l,-8,TieHeight])fill_bottom(1,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
         }
     }
     
-    x=10;
     if (!JustSlope) {
         // side 3x2 block
         translate([-0,-40,0]) {
             // Studs
             for (i=[0:8:(SideBlockWidth-1)*BlockWidth])
                 for (j=[0:8:(SideBlockLength-1)*BlockWidth])
-                    translate ([4+i,4+j,3]) cylinder(d=StudDiameter,h=StudHeight, $fn = 50);
+                    translate ([4+i,4+j,3]) cylinder(d=StudDiameter,h=StudHeight, $fn = CylinderPrecision);
                     
             difference () {
                 cube([BlockWidth*SideBlockWidth, BlockWidth*SideBlockLength,TieHeight], false);
@@ -513,7 +585,7 @@ module sloped_side(JustSlope=false, l=100) {
             // Studs
             for (i=[0:8:(SideBlockWidth-1)*BlockWidth])
                 for (j=[0:BlockWidth:(SideBlockLength-1)*BlockWidth])
-                    translate ([4+i,4+j,3]) cylinder(d=StudDiameter,h=StudHeight, $fn = 50);
+                    translate ([4+i,4+j,3]) cylinder(d=StudDiameter,h=StudHeight, $fn = CylinderPrecision);
     
               difference () {
                 cube([BlockWidth*SideBlockWidth, BlockWidth*SideBlockLength,TieHeight], false);
@@ -532,7 +604,7 @@ AdditionalLength = (StraightLength-1) * BlockWidth;
 if (Type == "straight")
     mainStraight (AdditionalLength,ties=ties);
 else if (Type == "curve") {
-    %color("Lime")for(i=[0: 22.5: 90])rotate([0,0,i])
+    color("Lime")for(i=[0: 22.5: 90])rotate([0,0,i])
         translate([0,25,0])
             cube([1,400,1]);
 
