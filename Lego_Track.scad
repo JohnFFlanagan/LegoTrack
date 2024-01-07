@@ -6,20 +6,27 @@ IncludeWallSplines = "no"; // [yes:"Yes",no:"No"]
 BottomOpen = "yes"; // [yes:"Yes",no:"No"]
 // Number of ties.  No checking is done so overlaps can occur
 ties = 1; // [0:1:10]
+// Hole in the middle of the ties
 TieCenterHole  = "yes"; // [yes:"Yes",no:"No"]
+// Radius of the tie center hole
 CenterHoleRadius = 1.6; // [0:-01:3] One LU
-  
+// Supports to and end of rails
+EndSupports = "yes"; // [yes:"Yes", no:"No"]"
+
 /* [Straight] */
 StraightLength =8;  // [2:1:16]
+
 /* [Curve] */
 // Angle in degrees
 CurveAngle = 45; // [0:0.001:180]
 // Radius in 1x1 units (4mm)
 CurveRadius = 20;
+
 /* [Crossing] */
+// This can generate a full crossing or just the side or center.  And the center could be a "rerailer".  If you do a side with ramp or center turning them over and laying them flat during printing produces the smoothest result. For side with slope, the angle depents on BottomOpen.  The lowest entry is BottomOpen = No.
 CrossingType = "full"; // [full:"Full",side:"Side",center:"Center",rerail:"Rerail"]
 // Length of the crossing
-CrossingLength = 15;
+CrossingLength = 8;
 // How long is the side of the crossing
 CrossingSideWidth = 5; // [5,6]
 // Side style ramp or convex curve
@@ -35,12 +42,12 @@ SideBlockLength = 3;    // [1,2,3,4]
 
 /* [Printer-Specific] */
 // Change Stud on top size based on printer
-StudRescale = 1.05;  // [1.0:0.001:2.0]
+StudRescale = 1.00;  // [1.0:0.001:2.0]
 // Change large Post size based on printer
-PostRescale = 1.05;  // [1.0:0.001:2.0]
+PostRescale = 1.00;  // [1.0:0.001:2.0]
 // Change pin in 1xX areas based on printer
-PinRescale=   1.10; // [1.0:0.001:2.0]
-endSupports = "no"; // [yes:"Yes", no:"No"]
+PinRescale=   1.00; // [1.0:0.001:2.0]
+
 module __Customizer_Limit__ () {}  // End of customizer values
 
 LU = 1.6;   // Lego design unit
@@ -112,7 +119,7 @@ module rail_endpoint_left() {
     poly = [[3.2+off_h,4+off_w], [3.2+off_h,7],[4,7], [7.6,5.35], [RailHeight,5.25], [RailHeight,4+off_w]];
     translate([8,8+off_l,0]) rotate([-90,-90,180]) linear_extrude(8-off_w) polygon(poly);
     // support
-    if(endSupports == "yes")
+    if(EndSupports == "yes")
         translate([-1.5,off_l,0]) cube([8,1,3.2+off_h], false);
 }
 
@@ -280,7 +287,6 @@ module full_endpoint() {
 module fill_bottom(width, length, height) {
 // width is Y length is X
     wall_play = 0.0;
-    post_wall_thickness = 0.85;
     total_posts_width = (PostDiameter * (width - 1)) + ((width - 2) * (StudSpacing - PostDiameter));
     total_posts_length = (PostDiameter * (length - 1)) + ((length - 2) * (StudSpacing - PostDiameter));
     total_pins_width = (PinDiameter * (width - 1)) + max(0, ((width - 2) * (StudSpacing - PinDiameter)));
@@ -291,7 +297,7 @@ module fill_bottom(width, length, height) {
     module post() {
         difference() {
             cylinder(r=PostDiameter/2, h=height,$fn=CylinderPrecision);
-            translate([0,0,-FPOffset]) cylinder(r=(PostDiameter/2)-post_wall_thickness, h=height+FPOffset,$fn=CylinderPrecision);
+            translate([0,0,-FPOffset]) cylinder(r=StudDiameter/2+0.23, h=height+FPOffset,$fn=CylinderPrecision);
         }
     }
     
@@ -489,23 +495,28 @@ side_length = CrossingSideWidth*BlockWidth;
     difference() {    // Set basic shape, slope for ramp and cube for curve
         if (CrossingRampStype == "ramp" ) { // slope
             hull() {
-                translate([-l,-2,0])  cube([l,2,8]);
-                translate([-l,-side_length,0]) cube([l,2,2.2]);
+                translate([-l,-2,0])  cube([l,2,BlockHeight]);
+                if (bottom_open)
+                    translate([-l,-side_length,0]) cube([l,2,2.4]);
+                else
+                    translate([-l,-side_length,0]) cube([l,2,1.0]);
             }
         }
         else {
             translate([-l, -side_length,0]) cube([l, side_length, BlockHeight]);
         }
-        if (JustSlope) translate([-(l+FPOffset), -BlockWidth+FPOffset, -FPOffset]) 
-            cube([l+2*FPOffset,BlockWidth, TieHeight+FPOffset]);
+        if (JustSlope){ 
+            translate([-(l+FPOffset), -(BlockWidth+wall_play), -FPOffset])
+                cube([l+2*FPOffset,BlockWidth+FPOffset+wall_play, TieHeight+FPOffset]);
+            translate([-l+Wall,-8+Wall,TieHeight-FPOffset])
+                    cube([l-2*Wall, 8-2*Wall, TieHeight-RoofThickness+FPOffset+wall_play]);
+        }
 
         if (bottom_open) {
             if (!JustSlope) {
                 translate([-l+Wall,-side_length+Wall,-FPOffset]) cube([l-2*Wall, side_length-2*Wall, TieHeight-RoofThickness+FPOffset]);
             } else {
-                translate([-l+Wall,-side_length+Wall,-FPOffset]) cube([l-2*Wall, side_length-2*Wall, TieHeight-RoofThickness+FPOffset]);
-                translate([-l+Wall,-8+Wall,TieHeight-FPOffset])
-                    cube([l-2*Wall, 8-2*Wall, TieHeight-RoofThickness+FPOffset]);
+                translate([-l+Wall,-side_length+Wall,-FPOffset]) cube([l-2*Wall, side_length-BlockWidth-2*Wall, TieHeight-RoofThickness+FPOffset]);
             }
         }
                   
@@ -561,10 +572,12 @@ side_length = CrossingSideWidth*BlockWidth;
             translate([-l, -side_length,0]) fill_bottom(side_length/BlockWidth,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
         } else {
             translate([-l, -side_length,0]) fill_bottom((side_length-1)/BlockWidth,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
-            translate([-l,-8,TieHeight])fill_bottom(1,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
         }
     }
     
+    if (JustSlope) // bottom pins 
+       translate([-l,-8,TieHeight+wall_play])fill_bottom(1,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
+                
     if (!JustSlope) {
         // side 3x2 block
         translate([-0,-40,0]) {
@@ -622,16 +635,16 @@ else if (Type == "crossing"){
         difference() {
             translate([-l,0,0]) {
                 difference () {
-                    cube([l,Guage-8,8]);
-                    if (bottom_open) translate([Wall,Wall,-FPOffset]) cube([l-2*Wall,(Guage-8)-2*Wall, TieHeight-RoofThickness+FPOffset]);
+                    cube([l,Guage-8,BlockHeight-TieHeight]);
+                    translate([Wall,Wall,-FPOffset]) cube([l-2*Wall,(Guage-8)-2*Wall, TieHeight-RoofThickness+FPOffset]);
                 } 
-                if (bottom_open) fill_bottom((Guage-8)/BlockWidth,l/BlockWidth,TieHeight-RoofThickness);
+                fill_bottom((Guage-8)/BlockWidth,l/BlockWidth,TieHeight-RoofThickness);
             }
             if (CrossingType == "rerail") {
-        translate([0,(Guage-8)/2,-1]) rotate([0,0,-135]) cube([30,15,10],false);
-        translate([-l,(Guage-8)/2,-1]) rotate([0,0,-135]) cube([15,30,10],false);
-        translate([-(Guage-8)/2,(Guage-8),-1]) rotate([0,0,-45]) cube([30,15,10],false);
-        translate([-l,(Guage-8)/2,-1]) rotate([0,0,-45]) translate([-15,0,0])cube([15,30,10],false);
+                translate([0,(Guage-8)/2,-1]) rotate([0,0,-135]) cube([30,15,10],false);
+                translate([-l,(Guage-8)/2,-1]) rotate([0,0,-135]) cube([15,30,10],false);
+                translate([-(Guage-8)/2,(Guage-8),-1]) rotate([0,0,-45]) cube([30,15,10],false);
+            translate([-l,(Guage-8)/2,-1]) rotate([0,0,-45]) translate([-15,0,0])cube([15,30,10],false);
             }
         }
     }
