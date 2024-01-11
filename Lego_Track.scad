@@ -12,13 +12,22 @@ TieCenterHole  = "yes"; // [yes:"Yes",no:"No"]
 CenterHoleRadius = 1.6; // [0:-01:3] One LU
 // Supports to and end of rails
 EndSupports = "yes"; // [yes:"Yes", no:"No"]"
-
+// Number Of Check/Guard/CrossingFlange rails
+CheckRails = 0; // [0,1,2]
+// Length at the end.  Real Guards may almost cross
+CheckEndLength=1.5;     // [1.5:1:18]
 /* [Straight] */
+// Rail length in block widths
 StraightLength =8;  // [2:1:16]
+
+// CrossingFlange / Check Rail /Guard Rail Length
+CheckRailLength = 0;      // [2:1:14]
 
 /* [Curve] */
 // Angle in degrees
 CurveAngle = 45; // [0:0.001:180]
+//Check rail angle
+CheckAngle = 0;  // [0:0.001:180]
 // Radius in 1x1 units (4mm)
 CurveRadius = 20;
 
@@ -42,11 +51,14 @@ SideBlockLength = 3;    // [1,2,3,4]
 
 /* [Printer-Specific] */
 // Change Stud on top size based on printer
-StudRescale = 1.00;  // [1.0:0.001:2.0]
+StudRescale = 1.00;  // [.5:0.001:2.0]
 // Change large Post size based on printer
-PostRescale = 1.00;  // [1.0:0.001:2.0]
+PostRescale = 1.00;  // [.5:0.001:2.0]
 // Change pin in 1xX areas based on printer
-PinRescale=   1.00; // [1.0:0.001:2.0]
+PinRescale=   1.00; // [.5:0.001:2.0]
+// connector cylinders 
+ConnectorMaleCylinders = 1.0; // [.5:0.001:2.0] 
+ConnectorFemaleCylinders = 1.0; // [.5:0.001:2.0]
 
 module __Customizer_Limit__ () {}  // End of customizer values
 
@@ -65,9 +77,22 @@ PostDiameter = LU*4.07*PostRescale;  // 5*sqrt(2)-3 * LU
 PinDiameter = 3*PinRescale;
 TrackGuage      = LU*5*5; // 40 MM
 NarrowTrackGuage = LU*5*3; // 24 MM
+
+CheckGuage      = 34.5;     // Check Rail/Crossing Flang edge nearest
+                            // one rail from inside of other rail
+CheckWidth = 1.0;        // 1 thick
+CheckLength = min(CheckRailLength,StraightLength-2)*BlockWidth;
+RailInside = 4+1.25;        // Inside of rail from outer edge
+CheckOffset = TrackGuage-4-1.25-CheckGuage; // 0.25 MM from outter edge of rail block to inside of guard
+CheckEndRadius=.5;
+
+CheckEndAngle=60;
+
+
 FPOffset        = 0.1;      // value to add to difference to 
                             // account for floating point math
 CylinderPrecision = 80;     // Round smoothing
+
 Guage = (NormalNarrow == "normal" ? TrackGuage : NarrowTrackGuage);
 
 
@@ -76,9 +101,11 @@ SplineThickness = 0.7;
  
 bottom_open = BottomOpen == "yes";
 railProfile = (bottom_open) ? 
-    [[0,0],[0,1.6], [TieHeight-RoofThickness,1.6], [TieHeight-RoofThickness, 6.4], [0, 6.4], [0,8],[3,8],[3,7],[4,7],[5.25,5.25],[RailHeight,5.25],[RailHeight,2.75],[5.25,2.75],[4,1],[3,1],[3,0]]
-    :[[0,0], [0, 6.4], [0,8],[3,8],[3,7],[4,7],[5.25,5.25],[RailHeight,5.25],[RailHeight,2.75],[5.25,2.75],[4,1],[3,1],[3,0]];
-
+    [[0,0],[0,1.6], [TieHeight-RoofThickness,1.6], [TieHeight-RoofThickness, 6.4], [0, 6.4], [0,8],[TieHeight,8],[TieHeight,7],[4,7],[5.25,5.25],[RailHeight,5.25],[RailHeight,2.75],[5.25,2.75],[4,1],[TieHeight,1],[TieHeight,0]]
+    :[[0,0], [0, 6.4], [0,8],[TieHeight,8],[TieHeight,7],[4,7],[5.25,5.25],[RailHeight,5.25],[RailHeight,2.75],[5.25,2.75],[4,1],[TieHeight,1],[TieHeight,0]];
+guard_polygon = [[0,0],[0,BlockHeight-TieHeight], [CheckWidth,BlockHeight-TieHeight], [CheckWidth, 0]];
+guard_inner = [[0,0], [0,TieHeight], [CheckOffset,TieHeight], [CheckOffset,BlockHeight], [CheckWidth+CheckOffset,BlockHeight], [CheckWidth+CheckOffset, 0]];
+guard_outer = [[0,0],[0,BlockHeight], [CheckWidth,BlockHeight], [CheckWidth, TieHeight], [CheckWidth+CheckOffset, TieHeight], [CheckWidth+CheckOffset, 0]];
 
 
 module railCut(length) {
@@ -91,9 +118,12 @@ module rail_straight(length) {
     rotate([90,-90,180]) linear_extrude(length) polygon(railProfile);
 }
 
-module rail_curved(angle, radius) {
-    function angle_4mm(angle,radius) = 
+function angle_4mm(angle,radius) = 
         (360*4)/(3.14159*radius*2);
+
+    
+module rail_curved(angle, radius) {
+
     sa = angle_4mm(angle,radius);  // small angle
     
     translate([-radius,0,0])
@@ -103,21 +133,47 @@ module rail_curved(angle, radius) {
     rotate([0,0,90]) 
     polygon(railProfile);
 }
+
+module guard_curved(total_angle, angle, radius, inner=true) {
+
+    sa = angle_4mm(angle,radius);  // small angle
+
+    guard_angle = min(angle, total_angle-sa*4);
+    translate([-radius+(inner? 8:-CheckWidth-CheckOffset),0,0])
+    rotate([0,0,(total_angle-guard_angle)/2])
+    union() {
+        rotate_extrude(angle = guard_angle, $fn = 300)
+            translate([radius,0,0])
+                polygon(inner?guard_inner:guard_outer);
+        if(inner) {
+            translate([radius,0,0])GuardEnd(quad=1);
+            rotate([0,0,guard_angle])translate([radius,0,0])GuardEnd(quad=0);
+        } else {
+            translate([radius-CheckOffset,0,0])GuardEnd(quad=2);
+            rotate([0,0,guard_angle])translate([radius-CheckOffset,0,0])GuardEnd(quad=3);
+        }
+    }
+    
+}
 module rail_endpoint_right() {
-    off_l = 0.5;
-    off_h=0.1;
-    poly = [[2.2,1], [2.2,7], [4,7], [7.6,5.25], [RailHeight,5.25], [RailHeight,4], [3.2,4], [3.2,1]];
+    off_l = 0.2;
+    off_h=-0.1;
+    poly = [[2.2+off_h,1], [2.2+off_h,7], [4,7], [7.6,5.25], [RailHeight,5.25], [RailHeight,4], [TieHeight+off_h,4], [TieHeight+off_h,1]];
     //    poly = [[0,2],[0,6],[3+off_h,6],[3+off_h,4],[9,4],[9,2.75],[7,2.75],[4,2],[3+off_h,2]];
     translate([8,8+off_l,0]) rotate([-90,-90,180]) linear_extrude(8-off_l) polygon(poly);
+        // support
+    if(EndSupports == "yes")
+        translate([-1.5,-.5+off_l,0]) cube([8,1,2.2+off_h], false);
 }
 
 module rail_endpoint_left() {
     off_l = 0.5;
-    off_h=0.0;
-    off_w = 0.1;
+    off_h=0.2;
+    off_w = 0.3;
+    off_i = -0.1;
     
     poly = [[3.2+off_h,4+off_w], [3.2+off_h,7],[4,7], [7.6,5.35], [RailHeight,5.25], [RailHeight,4+off_w]];
-    translate([8,8+off_l,0]) rotate([-90,-90,180]) linear_extrude(8-off_w) polygon(poly);
+    translate([8+off_i,8+off_l,0]) rotate([-90,-90,180]) linear_extrude(8-off_w) polygon(poly);
     // support
     if(EndSupports == "yes")
         translate([-1.5,off_l,0]) cube([8,1,3.2+off_h], false);
@@ -129,12 +185,18 @@ module attach_poly(h) {
 }
 
 module narrow_rail_endpoint_right() {
-    poly = [[3.2,6],[3.2,4],[RailHeight,4],[RailHeight,2.75],[7,2.75],[4,2],[3.2,2]];
+    off_l = 0.5;
+    off_h=0.1;
+    off_w = 0.1;
+    poly = [[3.2+off_h,6],[3.2+off_h,4+off_w],[RailHeight,4+off_w],[RailHeight,2.75],[7,2.75],[4+off_w,2],[3.2+off_h,2]];
     rotate([90,-90,180]) linear_extrude(8) polygon(poly);
 }
 
 module narrow_rail_endpoint_left() {
-    poly = [[3.2,8],[3.2,4],[RailHeight,4],[RailHeight,2.75],[7,2.75],[4,1],[3.2,1]];
+    off_l = 0.5;
+    off_h=0.1;
+    off_w = 0.1;
+    poly = [[3.2+off_h,8],[3.2+off_h,4],[RailHeight,4],[RailHeight,2.75],[7,2.75],[4,1],[3.2,1]];
     rotate([90,-90,180]) linear_extrude(8) polygon(poly);
 }
 
@@ -160,7 +222,7 @@ module attach() {
                 difference () {
                     translate ([8-Wall,-4,0]) cube([35.2,8,TieHeight], false);
                     // Small notch at left end
-                    tieNotchSlot = .1; // extra clearance 
+                    tieNotchSlot = 0; // extra clearance 
                     translate ([6.4,-4-1,1.6-tieNotchSlot]) cube([1.6+tieNotchSlot,4+1,1.6+tieNotchSlot+FPOffset]);
                     if (bottom_open) {
                         difference() {
@@ -176,16 +238,16 @@ module attach() {
                 difference() {
                     union() {
                         translate ([16,-2.2,0]) cylinder(3.2,1,1,false, $fn = CylinderPrecision);
-                        translate ([16,-4,0]) cylinder(3.2,1.95,1.95,false, $fn = CylinderPrecision);
+                        translate ([16,-4,0]) cylinder(3.2,2*ConnectorMaleCylinders,2*ConnectorMaleCylinders,false, $fn = CylinderPrecision);
                     }
                     translate ([16,-4,-0.5]) cylinder(4,.8,.8,false, $fn = CylinderPrecision);
                 }
                 
                 // hole connection point additional material
-                translate ([28,-3.4,0]) mirror([0,1,0]) attach_poly(3.2);
+                translate ([28,-3.3,0]) mirror([0,1,0]) attach_poly(3.2);
             }
             // hole in the hole connection point
-            translate ([32,-4,-0.5]) cylinder(4,2-off,2+off,false, $fn = CylinderPrecision);
+            translate ([32,-4,-0.5]) cylinder(4,2*ConnectorFemaleCylinders-off,2*ConnectorFemaleCylinders+off,false, $fn = CylinderPrecision);
         }
         // end of tie left
         difference() {
@@ -194,10 +256,11 @@ module attach() {
                 translate ([-8+Wall,-4+Wall,-FPOffset])
                     cube([BlockWidth -(2*Wall),BlockWidth -(2*Wall),TieHeight-RoofThickness+FPOffset],false);
         }
-        
+        dropped_offset = 0.1;
         // end of tie right
         difference() {
             translate ([Guage+8-Wall, -4, 0]) cube([BlockWidth+Wall,BlockWidth,TieHeight], false);
+            translate ([Guage+8-2,-4-1,TieHeight-dropped_offset]) cube([1.6,4+1,1.6+FPOffset]);
             if (bottom_open)
                 translate ([Guage+8+Wall,-4+Wall,-FPOffset])
                     cube([BlockWidth -(2*Wall),BlockWidth -(2*Wall),TieHeight-RoofThickness+FPOffset],false);
@@ -351,6 +414,24 @@ module fill_bottom(width, length, height) {
 
 }
 
+// Called with quadrant.  0 is upper right going clockwise
+module GuardEnd(quad=0) {
+    q = [[[0,0,BlockHeight+TieHeight],[180,0,0]],
+        [[0,0,0],[0,0,0]],
+        [[CheckWidth+2*CheckOffset,0,BlockHeight+TieHeight],[0,180,0]],
+        [[CheckWidth+2*CheckOffset,0,0],[180,180,0]]];
+        translate(q[quad][0])rotate(q[quad][1]) {
+    translate([CheckEndRadius+CheckWidth+CheckOffset,0,TieHeight])
+            rotate([0,0,180])
+                rotate_extrude(angle=60, $fn=CylinderPrecision)
+                    translate([CheckEndRadius,0,0])polygon(guard_polygon);
+    translate([CheckEndRadius+CheckWidth+CheckOffset,0,TieHeight])
+        rotate([0,0,CheckEndAngle])
+    translate([-CheckWidth-CheckEndRadius,-CheckEndLength,0])
+        cube([CheckWidth, CheckEndLength, BlockHeight-TieHeight]);
+      }  
+}
+
 module tie() {
 
    // end of tie left
@@ -360,28 +441,28 @@ module tie() {
             translate ([-BlockWidth+Wall,-BlockWidth+Wall,-FPOffset]) 
                 cube ([BlockWidth-2*Wall,2*BlockWidth-2*Wall,TieHeight-RoofThickness+FPOffset],false);    
     }
-    if (bottom_open) translate([-BlockWidth, -BlockWidth, 0]) fill_bottom(2,1,TieHeight-RoofThickness);
+    if (bottom_open) translate([-BlockWidth, -BlockWidth, 0]) fill_bottom(2,1,TieHeight-RoofThickness+FPOffset);
     
     // end of tie right
     difference() {
-        translate ([Guage+8-Wall,-BlockWidth, 0]) cube([9.6,16,3.2], false);
+        translate ([Guage+8-Wall,-BlockWidth, 0]) cube([BlockWidth+Wall,BlockWidth*2,TieHeight], false);
         if (bottom_open) 
             translate ([Guage+8+Wall,-(BlockWidth-Wall),-FPOffset]) 
                 cube ([BlockWidth-2*Wall,2*BlockWidth-2*Wall,TieHeight-RoofThickness+FPOffset],false);
     }
     if (bottom_open) 
-        translate([(Guage+BlockWidth), -BlockWidth, 0]) fill_bottom(2,1,TieHeight-RoofThickness);
+        translate([(Guage+BlockWidth), -BlockWidth, 0]) fill_bottom(2,1,TieHeight-RoofThickness+FPOffset);
         
     // middle
     difference() {
         union () {
             difference() {
-                translate([6.4,-8,0]) cube([Guage-8+(2*Wall),16,TieHeight], false);  // Guage -8 accounts 1/2 rail block for each rail block
+                translate([BlockWidth,-8,0]) cube([Guage-8,16,TieHeight], false);  // Guage -8 accounts 1/2 rail block for each rail block
                 if (bottom_open)
                     translate ([BlockWidth+Wall,-(BlockWidth-Wall),-FPOffset]) 
                         cube ([Guage-8-2*Wall,2*BlockWidth-2*Wall,TieHeight-RoofThickness+FPOffset],false);
             }
-            if (bottom_open)translate([BlockWidth, -BlockWidth, 0]) fill_bottom(2,(Guage-8)/BlockWidth,TieHeight-RoofThickness);
+            if (bottom_open)translate([BlockWidth, -BlockWidth, 0]) fill_bottom(2,(Guage-8)/BlockWidth,TieHeight-RoofThickness+FPOffset);
         }
         // hole in the middle
         if (TieCenterHole == "yes")
@@ -401,8 +482,29 @@ module mainStraight(length=120, ties=1) {
     translate([Guage,0,0]) rail_straight(length);
     
     full_endpoint();
-
     translate([Guage+8,length,0]) rotate([180,180,0]) full_endpoint();
+    
+    // Add check rail if wanted
+
+    if (CheckRails > 0) {
+        translate([8,-CheckLength/2+AdditionalLength/2,0]) {
+            translate([CheckOffset, 0, TieHeight])cube([CheckWidth, CheckLength, BlockHeight-TieHeight]);
+            // support under the guard rail.  Remove for seperate rail and then add printing support
+            translate([-FPOffset, 0, 0])cube([CheckWidth+CheckOffset+FPOffset, CheckLength, TieHeight+FPOffset]);
+            GuardEnd(quad=1);
+            translate([0,CheckLength,0])GuardEnd(quad=0);
+        }
+    }
+    if (CheckRails == 2) {
+        translate([Guage-CheckWidth,-CheckLength/2+AdditionalLength/2,0])
+        {
+            translate([CheckOffset, 0, TieHeight])cube([CheckWidth, CheckLength, BlockHeight-TieHeight]);
+            // support under the guard rail.  Remove for seperate rail and then add printing support
+            translate([-FPOffset, 0, 0])cube([CheckWidth+CheckOffset+FPOffset, CheckLength, TieHeight+FPOffset]);
+            translate([0,CheckLength,0])GuardEnd(quad=3);
+            GuardEnd(quad=2);
+        }
+    }
 
     for (index = [1:1:ties]) {
         translate([0,(length+8)*(index/(ties+1))-4,0]) tie();
@@ -419,9 +521,13 @@ module mainStraight(length=120, ties=1) {
     outer_tie_radius = inner_tie_radius + Guage;
 
     // Move so tie is at 0,0,0
-    translate([8,0,0]) {
+    translate([8,0,0]){
         rail_curved(angle, inner_tie_radius);
         translate([Guage,0,0]) rail_curved(angle, outer_tie_radius);
+        if(CheckRails>0) 
+            guard_curved(angle, CheckAngle, inner_tie_radius+BlockWidth,true);
+        if (CheckRails ==2)
+            translate([Guage,0,0]) guard_curved(angle, CheckAngle, outer_tie_radius-CheckOffset,false);
     }
     translate([8,4,0])
         full_endpoint();
@@ -468,7 +574,7 @@ module crossing(l=120) {
     difference() {
         translate([-l+off/2,8,0]) {
             difference () {
-                cube([l-off,Guage-8,8]);
+                cube([l-off,Guage-8,BlockHeight]);
                 if (bottom_open) translate([Wall,Wall,-FPOffset]) cube([l-off-2*Wall,(Guage-8)-2*Wall, TieHeight-RoofThickness+FPOffset]);
             } 
             if (bottom_open) fill_bottom((Guage-8)/BlockWidth,(l-off)/BlockWidth,TieHeight-RoofThickness);
@@ -617,7 +723,7 @@ AdditionalLength = (StraightLength-1) * BlockWidth;
 if (Type == "straight")
     mainStraight (AdditionalLength,ties=ties);
 else if (Type == "curve") {
-    color("Lime")for(i=[0: 22.5: 90])rotate([0,0,i])
+    %color("Lime")for(i=[0: 22.5: 90])rotate([0,0,i])
         translate([0,25,0])
             cube([1,400,1]);
 
