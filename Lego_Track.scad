@@ -1,6 +1,6 @@
 /* [Type of track ] */
 // What type of Track should this be? For type-specific options, see the "Straight," "Curve" tabs.
-Type = "straight"; // [straight:"Straight", curve:"Curve", crossing:"Crossing", test:"Test"]
+Type = "straight"; // [straight:"Straight", curve:"Curve", crossing:"Crossing", grade:"Grade", test:"Test"]
 NormalNarrow = "normal"; // [normal:"Normal", narrow:"Narrow"]
 IncludeWallSplines = "no"; // [yes:"Yes",no:"No"]
 BottomOpen = "yes"; // [yes:"Yes",no:"No"]
@@ -16,6 +16,7 @@ EndSupports = "yes"; // [yes:"Yes", no:"No"]
 CheckRails = 0; // [0,1,2]
 // Length at the end.  Real Guards may almost cross
 CheckEndLength=1.5;     // [1.5:1:18]
+  
 /* [Straight] */
 // Rail length in block widths
 StraightLength =8;  // [2:1:16]
@@ -48,6 +49,12 @@ SideBlockWidth = 2;     // [1,2]
 SideBlockLength = 3;    // [1,2,3,4]
 
 //
+/* [Grade] */
+// This produces a sloped track.  It may be useful for small cars with only 4 wheels, but is not useful for large City cars or power units.  The Logo ones were used in mine trains with vary short wheelbase cars.  The GradeType is how high the grade is.  
+GradeType = 1; // [1,2]
+// Add supports so you don't need blocks
+GradeSupport = true; // [true,false]
+
 
 /* [Printer-Specific] */
 // Change Stud on top size based on printer
@@ -61,6 +68,8 @@ ConnectorMaleCylinders = 1.0; // [.5:0.001:2.0]
 ConnectorFemaleCylinders = 1.0; // [.5:0.001:2.0]
 
 module __Customizer_Limit__ () {}  // End of customizer values
+
+Debug = false;
 
 LU = 1.6;   // Lego design unit
 BlockHeight     = 6*LU; // 9.6 MM
@@ -87,7 +96,6 @@ CheckOffset = TrackGuage-4-1.25-CheckGuage; // 0.25 MM from outter edge of rail 
 CheckEndRadius=.5;
 
 CheckEndAngle=60;
-
 
 FPOffset        = 0.1;      // value to add to difference to 
                             // account for floating point math
@@ -120,10 +128,7 @@ module rail_straight(length) {
 
 function angle_4mm(angle,radius) = 
         (360*4)/(3.14159*radius*2);
-
-    
 module rail_curved(angle, radius) {
-
     sa = angle_4mm(angle,radius);  // small angle
     
     translate([-radius,0,0])
@@ -133,11 +138,8 @@ module rail_curved(angle, radius) {
     rotate([0,0,90]) 
     polygon(railProfile);
 }
-
 module guard_curved(total_angle, angle, radius, inner=true) {
-
     sa = angle_4mm(angle,radius);  // small angle
-
     guard_angle = min(angle, total_angle-sa*4);
     translate([-radius+(inner? 8:-CheckWidth-CheckOffset),0,0])
     rotate([0,0,(total_angle-guard_angle)/2])
@@ -155,13 +157,35 @@ module guard_curved(total_angle, angle, radius, inner=true) {
     }
     
 }
+
+module negative_bend(angle,diameter)
+{
+    rotate([0,90,0])
+    translate([-diameter,0,+8])
+    rotate_extrude(angle = -angle, $fn = 300)
+    translate([diameter,0,0])
+    rotate([0,0,180]) 
+    polygon(railProfile);
+
+}
+
+module positive_bend(angle,diameter)
+{
+    rotate([-90,0,0])rotate([0,90,0])
+    translate([-diameter,0,0])
+    rotate([0,0,-angle])
+    rotate_extrude(angle = angle, $fn = 300)
+    translate([diameter,0,0])
+    polygon(railProfile);
+
+}
+
 module rail_endpoint_right() {
     off_l = 0.2;
     off_h=-0.1;
     poly = [[2.2+off_h,1], [2.2+off_h,7], [4,7], [7.6,5.25], [RailHeight,5.25], [RailHeight,4], [TieHeight+off_h,4], [TieHeight+off_h,1]];
-    //    poly = [[0,2],[0,6],[3+off_h,6],[3+off_h,4],[9,4],[9,2.75],[7,2.75],[4,2],[3+off_h,2]];
     translate([8,8+off_l,0]) rotate([-90,-90,180]) linear_extrude(8-off_l) polygon(poly);
-        // support
+    // support
     if(EndSupports == "yes")
         translate([-1.5,-.5+off_l,0]) cube([8,1,2.2+off_h], false);
 }
@@ -483,7 +507,7 @@ module mainStraight(length=120, ties=1) {
     
     full_endpoint();
     translate([Guage+8,length,0]) rotate([180,180,0]) full_endpoint();
-    
+
     // Add check rail if wanted
 
     if (CheckRails > 0) {
@@ -505,7 +529,6 @@ module mainStraight(length=120, ties=1) {
             GuardEnd(quad=2);
         }
     }
-
     for (index = [1:1:ties]) {
         translate([0,(length+8)*(index/(ties+1))-4,0]) tie();
         }
@@ -672,7 +695,7 @@ side_length = CrossingSideWidth*BlockWidth;
             }
         }
     }
-
+    
     if (bottom_open) {
         if (!JustSlope) {
             translate([-l, -side_length,0]) fill_bottom(side_length/BlockWidth,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
@@ -680,10 +703,10 @@ side_length = CrossingSideWidth*BlockWidth;
             translate([-l, -side_length,0]) fill_bottom((side_length-1)/BlockWidth,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
         }
     }
-    
+
     if (JustSlope) // bottom pins 
        translate([-l,-8,TieHeight+wall_play])fill_bottom(1,l/BlockWidth, TieHeight-RoofThickness+FPOffset);
-                
+              
     if (!JustSlope) {
         // side 3x2 block
         translate([-0,-40,0]) {
@@ -713,6 +736,164 @@ side_length = CrossingSideWidth*BlockWidth;
             if (bottom_open) fill_bottom(SideBlockLength,SideBlockWidth,TieHeight-RoofThickness);
         }
     }
+}
+ 
+module half_tie(bottom_open=bottom_open) {
+
+   // end of tie left
+   difference() {
+        translate ([-8,-8,0]) cube([BlockWidth+Wall,BlockWidth,TieHeight], false);
+        if (bottom_open) 
+            translate ([-BlockWidth+Wall,-BlockWidth+Wall,-FPOffset]) 
+                cube ([BlockWidth-2*Wall,BlockWidth-2*Wall,TieHeight-RoofThickness+FPOffset],false);    
+    }
+    if (bottom_open) translate([-BlockWidth, -BlockWidth, 0]) fill_bottom(1,1,TieHeight-RoofThickness+FPOffset);
+    
+    // end of tie right
+    difference() {
+        translate ([Guage+8-Wall,-BlockWidth, 0]) cube([BlockWidth+Wall,BlockWidth,TieHeight], false);
+        if (bottom_open) 
+            translate ([Guage+8+Wall,-(BlockWidth-Wall),-FPOffset]) 
+                cube ([BlockWidth-2*Wall,BlockWidth-2*Wall,TieHeight-RoofThickness+FPOffset],false);
+    }
+    if (bottom_open) 
+        translate([(Guage+BlockWidth), -BlockWidth, 0]) fill_bottom(1,1,TieHeight-RoofThickness+FPOffset);
+        
+    // middle
+    difference() {
+        union () {
+            difference() {
+                translate([BlockWidth,-8,0]) cube([Guage-8,BlockWidth,TieHeight], false);  // Guage -8 accounts 1/2 rail block for each rail block
+                if (bottom_open)
+                    translate ([BlockWidth+Wall,-(BlockWidth-Wall),-FPOffset]) 
+                        cube ([Guage-8-2*Wall,BlockWidth-2*Wall,TieHeight-RoofThickness+FPOffset],false);
+            }
+            if (bottom_open)translate([BlockWidth, -BlockWidth, 0]) fill_bottom(1,(Guage-8)/BlockWidth,TieHeight-RoofThickness+FPOffset);
+        }
+    }
+    
+    for(index = [0:1:7]) {
+        if(need_stud(index))
+            translate ([-4+BlockWidth*index,-4,3]) stud();
+    }
+
+}
+
+module brickpattern(layers=6, run=10, brickwidth=4, brickheight=2, brickthickness=1, mortar=.3) {
+    translate ([-(brickwidth/2), 0, 0]) //moves the whole thing back over to the y axis for the half-brick width
+    for (layer = [0:1:layers]) {
+        shift = layer %2; //staggers every other layer
+        for (brick = [0:1:run]) {
+            if ((brick == 0) && (!shift) ) { //half-brick for left side
+                translate([brick*(brickwidth+mortar)+(shift*(brickwidth/2))+brickwidth/2, layer*(brickheight+mortar), 0]) 
+                    color("Red") cube([brickwidth/2, brickheight, brickthickness]);
+            }
+            else if ((brick == run) && (shift)) { //half-brick for right side
+                translate([brick*(brickwidth+mortar)+(shift*(brickwidth/2)), layer*(brickheight+mortar), 0]) 
+                color("Red") cube([brickwidth/2, brickheight, brickthickness]);
+            }
+            else { //full brick
+                translate([brick*(brickwidth+mortar)+(shift*(brickwidth/2)), layer*(brickheight+mortar), 0]) 
+                color("Red") cube([brickwidth, brickheight, brickthickness]);
+            }
+        }
+    }
+}
+
+function sq(x) = x*x;
+
+run_1 = 2*BlockWidth;
+rise_1 = 0;
+run_2 = 5*BlockWidth;
+rise_2 = ((GradeType==1) ?1:2)*BlockHeight;
+run_3 = 4*BlockWidth;
+rise_3 = ((GradeType==1) ?2:4)*BlockHeight;
+rise_4 = ((GradeType==1) ?3:5)*BlockHeight;
+run_4 = 4*BlockWidth;
+straight_angle = atan((rise_3-rise_2)/run_3);
+
+
+sa2 = straight_angle;
+sa1 = atan((rise_2-rise_1)/run_2);
+sa3 = atan((rise_4-rise_3)/run_4);
+// middle slope = (rise3-rise2)/run3;
+// slope line -> y-mx+b   m = middle_slop b=(rise2-rise1)-middle_slop(run1-run2)
+// intercept = y=mx+b=m(run2)+0 x=run2-b/m
+
+middle_slope = (rise_3-rise_2)/(4*BlockWidth);
+m=(rise_3-rise_2)/run_3;
+if (Debug)echo(rise_3,rise_2,run_3, m);
+b=-24*m;
+
+c=-(rise_4-b-m*(run_1+run_2+run_3+run_4))/(m*cos(sa2/2)-sin(sa2/2));
+iy2 = rise_4-c*sin(sa2/2);
+ix2 = (run_1+run_2+run_3+run_4)-c*cos(sa2/2);
+if (Debug)echo ("c",c, "iy2",iy2,"ix2",ix2, "y=mx+b", m*(ix2)+b);
+if (Debug)%color("Green")translate([0,ix2,iy2])rotate([0,90,0])cube([1,1,500]);
+radius2 = c/sqrt(2*(1-cos(sa2)));
+// a = radius to intercept
+a = (m*run_1+b)/(sin(sa2/2)-m*cos(sa2/2));
+if (Debug)echo(radius2);
+iy = a*sin(sa2/2);
+ix = a*cos(sa2/2)+run_1;
+if (Debug)echo("y=mx+b",m*ix+b);
+radius1 = a/sqrt(2*(1-cos(sa2))); 
+straight_length = sqrt(sq(ix2-ix)+sq(iy2-iy));
+if (Debug)echo(sin(sa2/2), cos(sa2/2), m*cos(sa2/2),sin(sa2/2)-m*cos(sa2/2));
+if (Debug)echo("b",b, "m",m, "a",a, "ix",ix, "iy",iy);
+if (Debug)%color("Green")translate([0,ix,iy])rotate([0,90,0])cube([1,1,500]);
+if (Debug)%color("Green")translate([6*BlockWidth,0,b])rotate([-90+atan(m),0,0])cube([1,1,500]);
+
+if (Debug)echo("radius1",radius1, sqrt(2*(1-cos(sa2))));
+
+module bent_rail() {
+    translate([0,4,0])rail_straight(run_1-4);
+    translate([BlockWidth, run_1, 0])rotate([0,0,180])negative_bend(sa2, radius1);
+
+    translate([0,ix,iy])rotate([straight_angle,0,0])rail_straight(straight_length);
+
+    translate([0,ix2, iy2])rotate([-(90-sa2),0,0])positive_bend(sa2,radius2);
+
+    translate([0,run_1+run_2+run_3+run_4, rise_4])rail_straight(4);
+    // Fill under tie for more support
+
+    translate([0, 4*BlockWidth, TieHeight])cube([BlockWidth, BlockWidth, TieHeight]);
+    translate([0, 8*BlockWidth, rise_2+TieHeight])cube([BlockWidth, BlockWidth, TieHeight]);
+    translate([0, 12*BlockWidth, rise_3+TieHeight])cube([BlockWidth, BlockWidth, TieHeight]);
+
+    if(!bottom_open) {
+        translate([0, 3*BlockWidth, 0])cube([BlockWidth, BlockWidth*2, TieHeight]);
+        translate([0, 7*BlockWidth, rise_2])cube([BlockWidth, BlockWidth*2, TieHeight]);
+        translate([0, 11*BlockWidth, rise_3])cube([BlockWidth, BlockWidth*2, TieHeight]);
+    }
+    
+
+    if (GradeSupport) {
+
+        translate([0, 7*BlockWidth, 0])cube([BlockWidth, BlockWidth*2, rise_2]);
+        translate([0, 11*BlockWidth, 0])cube([BlockWidth, BlockWidth*2, rise_3]);
+        translate([0, 15*BlockWidth, 0])cube([BlockWidth, BlockWidth, rise_4]);
+        
+    }
+}
+
+module grade() {
+    brickwidth = 4;
+    pat_width = 2*BlockWidth/brickwidth;
+    //color("Gray")translate([0,13*BlockWidth,0])scale([1,.83,1.1])rotate([90,0,0])rotate([0,-90,0])brickpattern(layers=6, run=pat_width, brickwidth=brickwidth, brickheight=5, brickthickness=1, mortar=.3);
+    bent_rail();
+    translate([Guage, 0, 0])bent_rail();
+    translate([Guage+8,run_1+run_2+run_3+run_4+4, rise_4])rotate([0,0,180])full_endpoint();
+
+
+    translate([0,4*BlockWidth,0])tie();
+    translate([0,8*BlockWidth,rise_2])tie();
+    translate([0,12*BlockWidth,rise_3])tie();
+    translate([0,4,0])full_endpoint();
+
+    translate([0, 4*BlockWidth+BlockWidth, TieHeight])half_tie(bottom_open=false);
+    translate([0, 8*BlockWidth+BlockWidth, rise_2+TieHeight])half_tie(bottom_open=false);
+    translate([0, 13*BlockWidth, rise_3+TieHeight])half_tie(bottom_open=false);
 }
  
 /*
@@ -756,24 +937,18 @@ else if (Type == "crossing"){
     }
 }      
    
-else if (Type =="test"){
+else if (Type == "grade")
+    grade();
+else if (Type =="test")
+{
     tie();
     translate([0,-8,0]) rail_straight(16);
     translate([Guage,-8,0]) rail_straight(16);
-}
+}   
+  
+  
 
 /*
-module negative_bend(angle,diameter)
-{
-    rotate([0,90,0])
-    translate([-diameter,0,+8])
-    rotate([0,0,-angle])
-    rotate_extrude(angle = angle, $fn = 300)
-    translate([diameter,0,0])
-    rotate([0,0,180]) 
-    polygon(railProfile);
-
-}
 module rail_curved2(angle, diameter) {
     //rotate([0,-90,0])
     //translate([diameter,0,]) 
