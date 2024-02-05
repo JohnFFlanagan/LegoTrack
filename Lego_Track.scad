@@ -11,7 +11,7 @@ TieCenterHole  = "yes"; // [yes:"Yes",no:"No"]
 // Radius of the tie center hole
 CenterHoleRadius = 1.6; // [0:-01:3] One LU
 // Supports to and end of rails
-EndSupports = "yes"; // [yes:"Yes", no:"No"]"
+EndSupports = "yes"; // [yes:"Yes", no:"No"]
 // Number Of Check/Guard/CrossingFlange rails
 CheckRails = 0; // [0,1,2]
 // Length at the end.  Real Guards may almost cross
@@ -25,11 +25,11 @@ CheckRailLength = 0;      // [2:1:14]
 
 /* [Curve] */
 // Angle in degrees
-CurveAngle = 45; // [0:0.001:180]
+CurveAngle = 22.5; // [0:0.001:180]
 //Check rail angle
 CheckAngle = 0;  // [0:0.001:180]
 // Radius in 1x1 units (4mm)
-CurveRadius = 20;
+CurveRadius = 40;
 
 /* [Crossing] */
 // This can generate a full crossing or just the side or center.  And the center could be a "rerailer".  If you do a side with ramp or center turning them over and laying them flat during printing produces the smoothest result. For side with slope, the angle depents on BottomOpen.  The lowest entry is BottomOpen = No.
