@@ -834,14 +834,14 @@ radius2 = c/sqrt(2*(1-cos(sa2)));
 // a = radius to intercept
 a = (m*run_1+b)/(sin(sa2/2)-m*cos(sa2/2));
 if (Debug)echo(radius2);
-iy = a*sin(sa2/2);
-ix = a*cos(sa2/2)+run_1;
-if (Debug)echo("y=mx+b",m*ix+b);
+iy1 = a*sin(sa2/2);
+ix1 = a*cos(sa2/2)+run_1;
+if (Debug)echo("y=mx+b",m*ix1+b);
 radius1 = a/sqrt(2*(1-cos(sa2))); 
-straight_length = sqrt(sq(ix2-ix)+sq(iy2-iy));
+straight_length = sqrt(sq(ix2-ix1)+sq(iy2-iy1));
 if (Debug)echo(sin(sa2/2), cos(sa2/2), m*cos(sa2/2),sin(sa2/2)-m*cos(sa2/2));
-if (Debug)echo("b",b, "m",m, "a",a, "ix",ix, "iy",iy);
-if (Debug)%color("Green")translate([0,ix,iy])rotate([0,90,0])cube([1,1,500]);
+if (Debug)echo("b",b, "m",m, "a",a, "ix1",ix1, "iy1",iy1);
+if (Debug)%color("Green")translate([0,ix1,iy1])rotate([0,90,0])cube([1,1,500]);
 if (Debug)%color("Green")translate([6*BlockWidth,0,b])rotate([-90+atan(m),0,0])cube([1,1,500]);
 
 if (Debug)echo("radius1",radius1, sqrt(2*(1-cos(sa2))));
@@ -850,30 +850,29 @@ module bent_rail() {
     translate([0,4,0])rail_straight(run_1-4);
     translate([BlockWidth, run_1, 0])rotate([0,0,180])negative_bend(sa2, radius1);
 
-    translate([0,ix,iy])rotate([straight_angle,0,0])rail_straight(straight_length);
+    translate([0,ix1,iy1])rotate([straight_angle,0,0])rail_straight(straight_length);
 
     translate([0,ix2, iy2])rotate([-(90-sa2),0,0])positive_bend(sa2,radius2);
 
     translate([0,run_1+run_2+run_3+run_4, rise_4])rail_straight(4);
+    
+    
     // Fill under tie for more support
-
-    translate([0, 4*BlockWidth, TieHeight])cube([BlockWidth, BlockWidth, TieHeight]);
-    translate([0, 8*BlockWidth, rise_2+TieHeight])cube([BlockWidth, BlockWidth, TieHeight]);
-    translate([0, 12*BlockWidth, rise_3+TieHeight])cube([BlockWidth, BlockWidth, TieHeight]);
-
-    if(!bottom_open) {
-        translate([0, 3*BlockWidth, 0])cube([BlockWidth, BlockWidth*2, TieHeight]);
+    if(GradeSupport || !bottom_open) {
         translate([0, 7*BlockWidth, rise_2])cube([BlockWidth, BlockWidth*2, TieHeight]);
         translate([0, 11*BlockWidth, rise_3])cube([BlockWidth, BlockWidth*2, TieHeight]);
+        translate([0, 4*BlockWidth, TieHeight])cube([BlockWidth, BlockWidth, TieHeight]);
+        translate([0, 8*BlockWidth, rise_2+TieHeight])cube([BlockWidth, BlockWidth, TieHeight]);
+        translate([0, 12*BlockWidth, rise_3+TieHeight])cube([BlockWidth, BlockWidth, TieHeight]);
     }
-    
+    // Only alld support to bottom tie if not bottom_open
+    if (!bottom_open)
+        translate([0, 3*BlockWidth, 0])cube([BlockWidth, BlockWidth*2, TieHeight]);    
 
     if (GradeSupport) {
-
         translate([0, 7*BlockWidth, 0])cube([BlockWidth, BlockWidth*2, rise_2]);
         translate([0, 11*BlockWidth, 0])cube([BlockWidth, BlockWidth*2, rise_3]);
-        translate([0, 15*BlockWidth, 0])cube([BlockWidth, BlockWidth, rise_4]);
-        
+        translate([0, 15*BlockWidth, 0])cube([BlockWidth, BlockWidth, rise_4]);        
     }
 }
 
